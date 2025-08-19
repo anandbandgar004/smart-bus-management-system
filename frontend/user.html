@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BusAI Navigator - Track Your Bus</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #0b1220;
+        color: #e5e7eb;
+        overflow: hidden; 
+      }
+      #map {
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+      }
+      .leaflet-tile-pane {
+        filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+      }
+      .card {
+        background-color: #111827e6; 
+        border: 1px solid #23303b;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+      }
+      .small-muted {
+        color: #9ca3af;
+        font-size: 0.85rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+
+    <main
+      class="relative z-10 p-4 sm:p-6 flex justify-center sm:justify-start h-screen"
+    >
+      <div
+        class="card rounded-lg p-6 w-full max-w-sm h-fit transition-all duration-300"
+      >
+        <div class="flex items-center space-x-3 mb-4">
+          <i class="fas fa-bus-simple text-2xl text-indigo-400"></i>
+          <div>
+            <h1 class="text-xl font-bold">BusAI Navigator</h1>
+            <p class="text-sm text-gray-400">Track your bus in real-time</p>
+          </div>
+        </div>
+
+        <form id="search-form" class="flex items-center">
+          <input
+            id="search-input"
+            type="text"
+            placeholder="Enter Bus ID (e.g., DL1PD5041)"
+            class="bg-gray-900 text-white rounded-l-md px-4 py-2 w-full focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          <button
+            type="submit"
+            class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-r-md"
+          >
+            <i class="fas fa-search"></i>
+          </button>
+        </form>
+
+        <div id="result-container" class="hidden mt-6">
+          </div>
+      </div>
+    </main>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const MAP_CENTER = [28.62, 77.22]; 
+        const MAP_ZOOM = 12;
+        const state = {
+          buses: {}, 
+          searchedBusMarker: null, 
+        };
+
+        const DOM = {
+          map: document.getElementById("map"),
+          searchForm: document.getElementById("search-form"),
+          searchInput: document.getElementById("search-input"),
+          resultContainer: document.getElementById("result-container"),
+        };
+
+        
+        const map = L.map(DOM.map).setView(MAP_CENTER, MAP_ZOOM);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap contributors",
+        }).addTo(map);
+
+        function colorFromId(id) {
+          if (!id) return '#9ca3af';
+          let h = 0;
+          for (let i = 0; i < id.length; i++)
+            h = (h * 31 + id.charCodeAt(i)) % 360;
+          return `hsl(${h},70%,60%)`;
+        }
+        
+        function handleSearch(e) {
+            e.preventDefault();
+            const busIdToSearch = DOM.searchInput.value.trim().toUpperCase();
+            if (!busIdToSearch) return;
+
+            const bus = state.buses[busIdToSearch];
+            DOM.resultContainer.classList.remove('hidden');
+
+            if (bus) {
+                
+                let statusClass = "text-green-400", statusText = "On Time";
+                const delay = Number(bus.delay) || 0;
+                if (delay >= 1 && delay < 5) { statusClass = "text-yellow-400"; statusText = `Delayed ${delay} min`; } 
+                else if (delay >= 5) { statusClass = "text-red-400"; statusText = `Delayed ${delay} min`; } 
+                else if (delay < 0) { statusClass = "text-cyan-300"; statusText = `Early ${Math.abs(delay)} min`; }
+
+                
+                DOM.resultContainer.innerHTML = `
+                    <div class="border-t border-gray-700 pt-4">
+                        <div class="flex justify-between items-center text-lg">
+                            <span class="font-bold">${bus.busId}</span>
+                            <span class="px-3 py-1 text-sm rounded-full" style="background-color: ${colorFromId(bus.routeId)}; color: white;">Route ${bus.routeId}</span>
+                        </div>
+                        <div class="p-4 my-3 bg-gray-900/50 rounded-lg text-center">
+                            <p class="text-3xl font-semibold ${statusClass}">${statusText}</p>
+                        </div>
+                        <div class="text-sm space-y-1">
+                            <p><span class="small-muted w-16 inline-block">Speed:</span> ${bus.speed} km/h</p>
+                            <p><span class="small-muted w-16 inline-block">Location:</span> Lat ${bus.currentLocation.lat.toFixed(4)}, Lng ${bus.currentLocation.lng.toFixed(4)}</p>
+                        </div>
+                    </div>
+                `;
+
+                
+                const latLng = [bus.currentLocation.lat, bus.currentLocation.lng];
+                const iconHtml = `<div style="background-color: ${colorFromId(bus.routeId)}; box-shadow: 0 0 12px ${colorFromId(bus.routeId)};" class="w-8 h-8 rounded-full flex items-center justify-center"><i class="fas fa-bus text-white"></i></div>`;
+                const icon = L.divIcon({ html: iconHtml, className: "", iconSize: [32, 32], iconAnchor: [16, 16] });
+
+                if (state.searchedBusMarker) {
+                    state.searchedBusMarker.setLatLng(latLng).setIcon(icon);
+                } else {
+                    state.searchedBusMarker = L.marker(latLng, { icon }).addTo(map);
+                }
+                map.setView(latLng, 16); 
+                state.searchedBusMarker.bindTooltip(`<b>${bus.busId}</b><br>${statusText}`).openTooltip();
+
+            } else {
+                DOM.resultContainer.innerHTML = `
+                    <div class="border-t border-gray-700 pt-4 text-center">
+                        <p class="text-red-400 font-semibold">Bus Not Found</p>
+                        <p class="small-muted mt-1">Please check the Bus ID and try again.</p>
+                    </div>
+                `;
+            }
+        }
+
+        
+        const socket = io("http://localhost:5000");
+
+        socket.on("connect", () => {
+          console.log("Connected to BusAI server.");
+        });
+
+        
+        socket.on("bus-location-update", (bus) => {
+          if (!bus || !bus.busId) return;
+          state.buses[bus.busId] = bus;
+
+          
+          if (state.searchedBusMarker && DOM.searchInput.value.trim().toUpperCase() === bus.busId) {
+            state.searchedBusMarker.setLatLng([bus.currentLocation.lat, bus.currentLocation.lng]);
+          }
+        });
+        
+        DOM.searchForm.addEventListener("submit", handleSearch);
+
+      });
+    </script>
+  </body>
+</html>

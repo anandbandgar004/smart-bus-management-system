@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BusAI Navigator - Welcome</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #0b1220;
+        color: #e5e7eb;
+        background-image: radial-gradient(#1e293b 1px, transparent 1px);
+        background-size: 20px 20px;
+      }
+      .card-link {
+        background-color: #111827;
+        border: 1px solid #23303b;
+        transition: all 0.3s ease;
+      }
+      .card-link:hover {
+        border-color: #4f46e5; 
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.2);
+      }
+    </style>
+  </head>
+  <body class="flex items-center justify-center min-h-screen p-4">
+    <div class="w-full max-w-4xl mx-auto text-center">
+      <!-- Header -->
+      <div class="mb-12">
+        <i class="fas fa-bus text-5xl text-indigo-400 mb-4"></i>
+        <h1 class="text-4xl md:text-5xl font-extrabold text-white">
+          Welcome to BusAI Navigator
+        </h1>
+        <p class="mt-4 text-lg text-gray-400">
+          Your intelligent transit management and tracking solution.
+        </p>
+      </div>
+
+      <!-- Navigation Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Operator Dashboard Card -->
+        <a href="./index.html" class="card-link rounded-xl p-8 block">
+          <div
+            class="bg-indigo-900/50 h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-6"
+          >
+            <i class="fas fa-user-shield text-3xl text-indigo-300"></i>
+          </div>
+          <h2 class="text-2xl font-bold text-white mb-2">
+            Operator Dashboard
+          </h2>
+          <p class="text-gray-400">
+            Access the full suite of tools for fleet management, real-time
+            analytics, and AI-powered operational alerts.
+          </p>
+        </a>
+
+        <!-- User Dashboard Card -->
+        <a href="./user.html" class="card-link rounded-xl p-8 block">
+          <div
+            class="bg-cyan-900/50 h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-6"
+          >
+            <i class="fas fa-map-location-dot text-3xl text-cyan-300"></i>
+          </div>
+          <h2 class="text-2xl font-bold text-white mb-2">User Dashboard</h2>
+          <p class="text-gray-400">
+            Quickly search for and track your bus in real-time. Get live status
+            updates and location information on the map.
+          </p>
+        </a>
+      </div>
+    </div>
+  </body>
+</html>
