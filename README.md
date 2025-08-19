@@ -44,3 +44,12 @@ It provides dashboards for both **operators** and **commuters**, powered by **GT
 ```bash
 git clone https://github.com/your-username/smart-bus-management.git
 cd smart-bus-management
+
+### 2. Install Dependencies
+```bash
+cd backend
+npm install
+
+### 3. Run Dev Server
+```bash
+npm run dev
