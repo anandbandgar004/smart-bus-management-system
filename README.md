@@ -42,7 +42,7 @@ It provides dashboards for both **operators** and **commuters**, powered by **GT
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-username/smart-bus-management.git
+git clone https://github.com/anandbandgar004/smart-bus-management-system.git
 cd smart-bus-management
 
 ### 2. Install Dependencies
