@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BusAI Navigator - Operator Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #0b1220;
+        color: #e5e7eb;
+      }
+      .card {
+        background-color: #111827;
+        border: 1px solid #23303b;
+      }
+      #map {
+        width: 100%;
+        height: 400px;
+        background-color: #374151;
+      }
+      .leaflet-tile-pane {
+        filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+      }
+      .leaflet-bar a,
+      .leaflet-bar a:hover {
+        background-color: #374151;
+        border-bottom: 1px solid #4b5563;
+        color: white;
+      }
+      .leaflet-control-attribution {
+        background-color: rgba(31, 41, 55, 0.8);
+        color: #e5e7eb;
+      }
+      .leaflet-container {
+        background: #374151;
+      }
+      .bus-leaflet-icon i {
+        font-size: 1.3rem;
+        text-shadow: 0 0 5px rgba(0, 0, 0, 0.9);
+      }
+      .small-muted {
+        color: #9ca3af;
+        font-size: 0.85rem;
+      }
+      .scrollable {
+        overflow-y: auto;
+      }
+      .scrollable::-webkit-scrollbar {
+        width: 8px;
+      }
+      .scrollable::-webkit-scrollbar-track {
+        background: #1f2937;
+        border-radius: 4px;
+      }
+      .scrollable::-webkit-scrollbar-thumb {
+        background: #4b5563;
+        border-radius: 4px;
+      }
+      .scrollable::-webkit-scrollbar-thumb:hover {
+        background: #6b7280;
+      }
+      .solution-text {
+        color: #67e8f9; 
+        font-size: 0.8rem;
+        margin-top: 6px;
+        font-weight: 600;
+        border-left: 2px solid #0891b2; 
+        padding-left: 8px;
+        line-height: 1.4;
+      }
+    </style>
+  </head>
+  <body class="overflow-x-hidden">
+    <div id="app" class="flex flex-col h-screen">
+      <header
+        class="card flex items-center justify-between p-4 border-b border-gray-700 flex-shrink-0"
+      >
+        <div class="flex items-center space-x-4">
+          <i class="fas fa-bus text-2xl text-indigo-400"></i>
+          <h1 class="text-xl font-bold">BusAI Navigator</h1>
+          <form id="search-form" class="flex items-center ml-8">
+            <input
+              id="search-input"
+              type="text"
+              placeholder="Search Bus ID (e.g., DL1PD5041)"
+              class="bg-gray-900 text-white rounded-l-md px-4 py-1.5 w-64 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <button
+              type="submit"
+              class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-1.5 rounded-r-md"
+            >
+              <i class="fas fa-search"></i>
+            </button>
+          </form>
+        </div>
+        <div class="flex items-center space-x-6">
+          <div class="text-sm text-right">
+            <p id="current-time" class="font-medium">--:--:--</p>
+            <p id="current-date" class="text-xs text-gray-400">--</p>
+          </div>
+          <div class="flex items-center space-x-2">
+            <i class="fas fa-user-shield text-gray-400"></i>
+            <span>Operator Mode</span>
+          </div>
+        </div>
+      </header>
+
+      <main class="flex-1 flex flex-col lg:flex-row p-4 gap-4 overflow-hidden">
+        
+        <div class="flex-1 lg:flex-[3] flex flex-col gap-4 scrollable pr-2">
+            <div class="card rounded-lg relative overflow-hidden flex-shrink-0">
+              <div id="map"></div>
+            </div>
+
+            <div
+              class="card rounded-lg p-4 flex items-center justify-between flex-shrink-0"
+            >
+              <div>
+                <span class="font-semibold">Location: Delhi, NCT</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="font-semibold">System Status:</span>
+                <div class="flex items-center gap-2">
+                  <div id="system-status-indicator" class="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                  <span id="system-status-message" class="text-sm text-yellow-400">Connecting...</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card rounded-lg p-6 flex-shrink-0">
+              <h2 class="text-xl font-semibold mb-4 flex items-center">
+                <i class="fas fa-chart-line mr-2"></i>System Analytics
+              </h2>
+              <div class="h-80 mb-4">
+                <canvas id="delay-chart"></canvas>
+              </div>
+              <div id="analytics-summary" class="text-md text-gray-300 mt-3"></div>
+            </div>
+        </div>
+
+        <aside class="flex-1 lg:flex-[1] flex flex-col gap-4 overflow-hidden">
+          
+          <div id="search-result-card" class="hidden card rounded-lg p-4 flex-shrink-0 relative">
+            <button id="close-search-btn" class="absolute top-3 right-4 text-gray-400 hover:text-white text-2xl">&times;</button>
+            <div id="search-result-container"></div>
+          </div>
+
+          <div id="default-sidebar-content" class="flex flex-col gap-4 h-full">
+              <div class="flex flex-col gap-4 scrollable pr-2 h-full">
+                <div class="card rounded-lg p-4 flex-shrink-0">
+                  <h2 class="text-lg font-semibold mb-2 flex items-center"><i class="fas fa-triangle-exclamation text-yellow-400 mr-2"></i>Critical Alerts</h2>
+                  <div id="alerts-container" class="space-y-2 max-h-40 overflow-y-auto scrollable"><p class="text-gray-400 text-sm">No critical alerts.</p></div>
+                </div>
+
+                <div class="card rounded-lg p-4 flex-shrink-0">
+                  <h2 class="text-lg font-semibold mb-2 flex items-center"><i class="fas fa-clipboard-list mr-2"></i>Live Bus Status</h2>
+                  <div id="bus-status-container" class="space-y-3 h-64 overflow-y-auto scrollable"><p class="text-gray-400 text-sm">Awaiting live data...</p></div>
+                </div>
+
+                <div class="card rounded-lg p-4 flex-shrink-0">
+                  <h2 class="text-lg font-semibold mb-2 flex items-center"><i class="fas fa-robot text-indigo-400 mr-2"></i>AI Predictions</h2>
+                  <div id="ai-suggestions" class="space-y-2 text-sm text-gray-300 max-h-48 overflow-y-auto scrollable"><p class="text-gray-400">Awaiting suggestions...</p></div>
+                </div>
+              </div>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+        const MAP_CENTER = [28.62, 77.22];
+        const MAP_ZOOM = 12;
+        const state = {
+          buses: {},
+          busMarkers: {},
+          routeRegistry: {},
+          delayChart: null,
+        };
+
+        const DOM = {
+          time: document.getElementById("current-time"),
+          date: document.getElementById("current-date"),
+          statusIndicator: document.getElementById("system-status-indicator"),
+          statusMsg: document.getElementById("system-status-message"),
+          busStatus: document.getElementById("bus-status-container"),
+          alerts: document.getElementById("alerts-container"),
+          analyticsSummary: document.getElementById("analytics-summary"),
+          aiSuggestions: document.getElementById("ai-suggestions"),
+          searchForm: document.getElementById("search-form"),
+          searchInput: document.getElementById("search-input"),
+          
+          searchResultCard: document.getElementById("search-result-card"),
+          searchResultContainer: document.getElementById("search-result-container"),
+          defaultSidebarContent: document.getElementById("default-sidebar-content"),
+          closeSearchBtn: document.getElementById("close-search-btn"),
+        };
+
+        function updateClock() {
+          const now = new Date();
+          DOM.time.textContent = now.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", });
+          DOM.date.textContent = now.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", weekday: "long", year: "numeric", month: "long", day: "numeric", });
+        }
+        function updateSystemStatus(ok, msg) {
+          DOM.statusIndicator.className = "w-3 h-3 rounded-full";
+          if (ok === "ok") { DOM.statusIndicator.classList.add("bg-green-500", "animate-pulse"); DOM.statusMsg.className = "text-sm text-green-400"; } 
+          else { DOM.statusIndicator.classList.add("bg-red-500"); DOM.statusMsg.className = "text-sm text-red-400"; }
+          DOM.statusMsg.textContent = msg;
+        }
+        function colorFromId(id) {
+          let h = 0;
+          for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 360;
+          return `hsl(${h},70%,60%)`;
+        }
+        function getRouteInfo(routeId) {
+          if (!routeId) routeId = "UNKNOWN";
+          if (!state.routeRegistry[routeId]) {
+            state.routeRegistry[routeId] = { name: routeId, color: colorFromId(routeId) };
+          }
+          return state.routeRegistry[routeId];
+        }
+        function updateMarker(bus) {
+          if (!bus || !bus.currentLocation) return;
+          const routeInfo = getRouteInfo(bus.routeId);
+          const iconHtml = `<div class="bus-leaflet-icon flex items-center justify-center rounded-full" style="width: 28px; height: 28px; background-color: ${routeInfo.color}; box-shadow: 0 0 8px ${routeInfo.color};"><i class="fas fa-bus text-white text-xs"></i></div>`;
+          const icon = L.divIcon({ html: iconHtml, className: "", iconSize: [28, 28], iconAnchor: [14, 14] });
+          const lat = Number(bus.currentLocation.lat) || 0;
+          const lng = Number(bus.currentLocation.lng) || 0;
+          if (state.busMarkers[bus.busId]) {
+            state.busMarkers[bus.busId].setLatLng([lat, lng]);
+            state.busMarkers[bus.busId].setIcon(icon);
+          } else {
+            state.busMarkers[bus.busId] = L.marker([lat, lng], { icon }).addTo(state.map);
+          }
+          state.busMarkers[bus.busId].bindTooltip(`${bus.busId} — ${routeInfo.name}`);
+        }
+        function renderOrUpdateBusStatus(bus) {
+            const routeInfo = getRouteInfo(bus.routeId);
+            let statusClass = "text-green-400", statusText = "On Time";
+            const delay = Number(bus.delay) || 0;
+            if (delay >= 1 && delay < 5) { statusClass = "text-yellow-400"; statusText = `Delay ${delay} min`; } 
+            else if (delay >= 5) { statusClass = "text-red-400"; statusText = `Delay ${delay} min`; } 
+            else if (delay < 0) { statusClass = "text-cyan-300"; statusText = `Early ${Math.abs(delay)} min`; }
+            const speed = (bus.speed || 0);
+            const container = DOM.busStatus;
+            let busElement = document.getElementById(`bus-status-${bus.busId}`);
+            if (!busElement) {
+                if (container.querySelector('p')) container.innerHTML = '';
+                busElement = document.createElement('div');
+                busElement.id = `bus-status-${bus.busId}`;
+                container.prepend(busElement); 
+            }
+            busElement.className = "p-2 border-l-4";
+            busElement.style.borderColor = routeInfo.color;
+            busElement.innerHTML = `<div class="flex justify-between items-center"><div><div class="font-medium">${bus.busId} — ${routeInfo.name}</div><div class="small-muted">Lat:${(bus.currentLocation.lat||0).toFixed(4)} Lng:${(bus.currentLocation.lng||0).toFixed(4)}</div></div><div class="text-right"><div class="${statusClass} font-semibold">${statusText}</div><div class="small-muted">Speed: ${speed} km/h</div></div></div>`;
+        }
+        function initChart() {
+          const ctx = document.getElementById("delay-chart").getContext("2d");
+          state.delayChart = new Chart(ctx, {
+            type: "bar", data: { labels: [], datasets: [{ label: "Delay (min)", data: [], backgroundColor: [] }], },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: "Top 100 Delayed Buses (minutes)", color: "#e5e7eb", font: { size: 16 } }, }, scales: { y: { beginAtZero: true, ticks: { color: "#9ca3af" }, grid: { color: "#374151" } }, x: { ticks: { color: "#9ca3af", display: false }, grid: { color: "#374151" }, }, }, },
+          });
+        }
+        function renderBusDelayChart() {
+            if (!state.delayChart) return;
+            const delayedBuses = Object.values(state.buses).filter(bus => bus.delay && bus.delay > 0).sort((a, b) => b.delay - a.delay).slice(0, 100);
+            const labels = delayedBuses.map(bus => bus.busId);
+            const data = delayedBuses.map(bus => bus.delay);
+            const colors = delayedBuses.map(bus => colorFromId(bus.routeId));
+            state.delayChart.data.labels = labels;
+            state.delayChart.data.datasets[0].data = data;
+            state.delayChart.data.datasets[0].backgroundColor = colors;
+            state.delayChart.update();
+        }
+        function renderAnalyticsSummary(summary) {
+          DOM.analyticsSummary.textContent = `Total in feed: ${summary.totalInFeed || 0} | Displayed: ${summary.emitted || 0} (capped at 200)`;
+        }
+        function renderAiSuggestions(payload) {
+            const items = (payload && payload.items) || [];
+            if (!items.length) {
+              DOM.aiSuggestions.innerHTML = '<p class="text-gray-400">No suggestions available.</p>';
+              DOM.alerts.innerHTML = '<p class="text-gray-400 text-sm">No critical alerts.</p>';
+              return;
+            }
+            DOM.aiSuggestions.innerHTML = items.map((s) => {
+                const title = (s.type || "alert").replace(/_/g, " ").toUpperCase();
+                const details = s.details ? Object.entries(s.details).map(([k, v]) => `${k}: ${v}`).join(" — ") : "";
+                const solutionHtml = s.solution ? `<div class="solution-text">${s.solution.action.toUpperCase()}: ${s.solution.suggestion}</div>` : "";
+                return `<div class="p-2 bg-indigo-900/30 rounded"><div class="font-semibold">${title}</div><div class="small-muted">${s.message}${s.busId ? " (Bus " + s.busId + ")" : ""}</div><div class="small-muted mt-1">${details}</div>${solutionHtml}</div>`;
+            }).join("");
+            const critical = items.filter((it) => it.severity === "high");
+            DOM.alerts.innerHTML = critical.length ? critical.map((c) => {
+                const solutionHtml = c.solution ? `<div class="solution-text !text-cyan-400 !border-cyan-700">${c.solution.suggestion}</div>` : "";
+                return `<div class="p-2 bg-red-900/25 rounded"><div class="font-bold text-red-300">${c.message}${ c.busId ? " — " + c.busId : ""}</div><div class="small-muted">${ c.details ? JSON.stringify(c.details) : ""}</div>${solutionHtml}</div>`;
+            }).join("") : '<p class="text-gray-400 text-sm">No critical alerts.</p>';
+        }
+
+        
+        function handleSearch(e) {
+          e.preventDefault();
+          const busIdToSearch = DOM.searchInput.value.trim().toUpperCase();
+          if (!busIdToSearch) return;
+
+          const bus = state.buses[busIdToSearch];
+          const marker = state.busMarkers[busIdToSearch];
+
+          
+          DOM.defaultSidebarContent.classList.add("hidden");
+          DOM.searchResultCard.classList.remove("hidden");
+
+          if (bus && marker) {
+            const routeInfo = getRouteInfo(bus.routeId);
+            let statusClass = "text-green-400", statusText = "On Time";
+            const delay = Number(bus.delay) || 0;
+            if (delay >= 1 && delay < 5) { statusClass = "text-yellow-400"; statusText = `Delay ${delay} min`; } 
+            else if (delay >= 5) { statusClass = "text-red-400"; statusText = `Delay ${delay} min`; } 
+            else if (delay < 0) { statusClass = "text-cyan-300"; statusText = `Early ${Math.abs(delay)} min`; }
+
+            DOM.searchResultContainer.innerHTML = `
+                <h3 class="text-xl font-bold mb-4">Search Result</h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center text-lg">
+                        <span class="font-bold">${bus.busId}</span>
+                        <span class="px-3 py-1 text-sm rounded-full" style="background-color: ${routeInfo.color}; color: white;">Route ${routeInfo.name}</span>
+                    </div>
+                    <div class="p-4 bg-gray-900/50 rounded-lg text-center">
+                        <p class="text-3xl font-semibold ${statusClass}">${statusText}</p>
+                        <p class="small-muted mt-1">Current Delay</p>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 text-sm pt-2">
+                        <div><span class="small-muted">Speed:</span> ${bus.speed} km/h</div>
+                        <div><span class="small-muted">Lat:</span> ${bus.currentLocation.lat.toFixed(4)}</div>
+                        <div><span class="small-muted">Lng:</span> ${bus.currentLocation.lng.toFixed(4)}</div>
+                    </div>
+                </div>`;
+            state.map.setView( [bus.currentLocation.lat, bus.currentLocation.lng], 16 );
+            marker.openTooltip();
+          } else {
+            DOM.searchResultContainer.innerHTML = `
+                <h3 class="text-xl font-bold mb-4">Search Result</h3>
+                <p class="text-red-400 font-semibold">Bus ID "${busIdToSearch}" not found.</p>
+                <p class="small-muted mt-2">Please ensure the bus is currently active and the ID is correct.</p>`;
+          }
+        }
+        
+        function init() {
+          state.map = L.map("map").setView(MAP_CENTER, MAP_ZOOM);
+          L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            attribution: "© OpenStreetMap contributors",
+            maxZoom: 19,
+          }).addTo(state.map);
+          setTimeout(() => state.map.invalidateSize(), 100);
+
+          updateClock();
+          setInterval(updateClock, 1000);
+          initChart();
+          setInterval(renderBusDelayChart, 5000);
+
+          // Event listener for the main search form
+          DOM.searchForm.addEventListener("submit", handleSearch);
+          
+          // Event listener to close the search result card and restore the default sidebar
+          DOM.closeSearchBtn.addEventListener('click', () => {
+              DOM.searchResultCard.classList.add('hidden');
+              DOM.defaultSidebarContent.classList.remove('hidden');
+              DOM.searchInput.value = ''; 
+              state.map.setView(MAP_CENTER, MAP_ZOOM); 
+          });
+
+          const socket = io("http://localhost:5000");
+          socket.on("connect", () => updateSystemStatus("ok", "Live connection active") );
+          socket.on("disconnect", () => updateSystemStatus("error", "Connection lost") );
+          socket.on("bus-location-update", (bus) => {
+            if (!bus || !bus.busId) return;
+            state.buses[bus.busId] = bus;
+            updateMarker(bus);
+            renderOrUpdateBusStatus(bus);
+          });
+          socket.on("analytics-summary", (summary) => {
+            renderAnalyticsSummary(summary || {});
+          });
+          socket.on("ai-suggestions", (payload) => {
+            renderAiSuggestions(payload);
+          });
+        }
+
+        init();
+      });
+    </script>
+  </body>
+</html>

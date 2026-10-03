@@ -137,3 +137,110 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Code Review Graph
+.code-review-graph/
+.code-review-graph*
+.crg/
+*.crg
+crg.db*
+graph.db*
+
+# Python & Virtual Environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.venv/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Django & SQLite
+*.sqlite3
+*.sqlite3-journal
+db.sqlite3
+db.sqlite3-journal
+
+# Testing & Lint/Type Checking Caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Editor & IDE Directories and Files
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.swp
+*.swo
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# Temporary & Backup Files
+*.bak
+*.tmp
+*.temp
+*~
+
+# Build & Local Environment Overrides
+dist-ssr
+*.local
+
+# AI & LLM Assistants (.llm_name directories and configs)
+.claude/
+.codebuddy/
+.cursor/
+.cursorrules
+.gemini/
+.kiro/
+.qoder/
+.windsurf/
+.windsurfrules
+.continue/
+.cody/
+.cline/
+.roo/
+.copilot/
+.agents/
+.mcp.json
+opencode.jsonc
+
+# AI & LLM Instruction Files
+AGENTS.md
+CLAUDE.md
+CODEBUDDY.md
+GEMINI.md
+QODER.md
+
+# Documentation Outputs
+BusAI_Navigator_System_Documentation.html
+BusAI_Navigator_System_Documentation.pdf
+*.pdf
+
+
