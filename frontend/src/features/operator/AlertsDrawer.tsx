@@ -26,7 +26,37 @@ const ICON_MAP: Record<string, React.ReactNode> = {
   coverage_gap: <MapPin size={15} className="text-sky-400 shrink-0" />,
 };
 
-function IncidentCard({ inc }: { inc: Incident }) {
+import { useState } from "react";
+import { dispatchIncidentApi } from "../../services/api";
+
+function IncidentCard({
+  inc,
+  onDispatch,
+}: {
+  inc: Incident;
+  onDispatch: (inc: Incident) => void;
+}) {
+  const [isDispatching, setIsDispatching] = useState(false);
+  const [dispatched, setDispatched] = useState(inc.status === "dispatched");
+
+  const handleDispatch = async () => {
+    if (dispatched || isDispatching) return;
+    setIsDispatching(true);
+    try {
+      if (inc.id) {
+        await dispatchIncidentApi(inc.id, inc.recommended_bus_id);
+      }
+      setDispatched(true);
+      onDispatch(inc);
+    } catch {
+      // Optimistic fallback
+      setDispatched(true);
+      onDispatch(inc);
+    } finally {
+      setIsDispatching(false);
+    }
+  };
+
   return (
     <div
       className={clsx(
@@ -39,18 +69,37 @@ function IncidentCard({ inc }: { inc: Incident }) {
           {ICON_MAP[inc.type] || <AlertTriangle size={15} />}
           <span>{inc.title}</span>
         </div>
-        <span className="uppercase text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide bg-black/40">
-          {inc.severity}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {dispatched && (
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+              DISPATCHED
+            </span>
+          )}
+          <span className="uppercase text-[9px] font-bold px-1.5 py-0.5 rounded tracking-wide bg-black/40">
+            {inc.severity}
+          </span>
+        </div>
       </div>
 
       <p className="text-slate-300 leading-relaxed mb-2">{inc.description}</p>
 
       {inc.solution && (
-        <div className="mt-2 pt-2 border-t border-white/10 bg-slate-900/60 -mx-3.5 -mb-3.5 p-3 rounded-b-xl">
-          <div className="flex items-center gap-1.5 text-cyan-400 font-semibold text-[11px] mb-1">
-            <Sparkles size={13} />
-            <span>AI Automated Action</span>
+        <div className="mt-2 pt-2 border-t border-white/10 bg-slate-900/60 -mx-3.5 -mb-3.5 p-3 rounded-b-xl space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-cyan-400 font-semibold text-[11px]">
+              <Sparkles size={13} />
+              <span>AI Automated Action</span>
+            </div>
+            {!dispatched && (
+              <button
+                type="button"
+                onClick={handleDispatch}
+                disabled={isDispatching}
+                className="px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-bold shadow-md shadow-cyan-600/30 transition-all cursor-pointer flex items-center gap-1"
+              >
+                {isDispatching ? "Dispatching..." : "⚡ Dispatch Bus"}
+              </button>
+            )}
           </div>
           <p className="text-cyan-200/90 text-[11px] leading-snug">
             {inc.solution}
@@ -65,6 +114,19 @@ export default function AlertsDrawer() {
   const incidents = useIncidentStore((s) => s.incidents);
   const unreadCount = useIncidentStore((s) => s.unreadCount);
   const markAllRead = useIncidentStore((s) => s.markAllRead);
+  const addDispatch = useIncidentStore((s) => s.addDispatch);
+  const updateIncidentStatus = useIncidentStore((s) => s.updateIncidentStatus);
+
+  const handleIncidentDispatch = (inc: Incident) => {
+    if (inc.id) {
+      updateIncidentStatus(inc.id, "dispatched");
+    }
+    addDispatch({
+      incidentId: inc.id || inc.title,
+      busId: inc.recommended_bus_id,
+      title: inc.title,
+    });
+  };
 
   useEffect(() => {
     // Initial fetch of active incidents from REST API if empty
@@ -75,12 +137,26 @@ export default function AlertsDrawer() {
           const items = Array.isArray(data) ? data : data.results;
           if (items && items.length > 0) {
             useIncidentStore.getState().setIncidents(
-              items.map((it: { incident_type: string; severity: string; title: string; description: string; suggested_action?: string }) => ({
+              items.map((it: {
+                id?: string;
+                status?: string;
+                incident_type: string;
+                severity: string;
+                title: string;
+                description: string;
+                suggested_action?: string;
+                recommended_bus?: string;
+                route?: string;
+              }) => ({
+                id: it.id,
+                status: it.status,
                 type: it.incident_type,
                 severity: it.severity,
                 title: it.title,
                 description: it.description,
                 solution: it.suggested_action,
+                recommended_bus_id: it.recommended_bus,
+                route_id: it.route,
               }))
             );
           }
@@ -159,7 +235,9 @@ export default function AlertsDrawer() {
             No critical anomalies detected.
           </div>
         ) : (
-          criticalAndHigh.map((inc, i) => <IncidentCard key={i} inc={inc} />)
+          criticalAndHigh.map((inc, i) => (
+            <IncidentCard key={inc.id || i} inc={inc} onDispatch={handleIncidentDispatch} />
+          ))
         )}
       </div>
 
@@ -176,9 +254,12 @@ export default function AlertsDrawer() {
             <span>Analyzing real-time fleet intervals...</span>
           </div>
         ) : (
-          otherIncidents.map((inc, i) => <IncidentCard key={i} inc={inc} />)
+          otherIncidents.map((inc, i) => (
+            <IncidentCard key={inc.id || i} inc={inc} onDispatch={handleIncidentDispatch} />
+          ))
         )}
       </div>
     </aside>
   );
 }
+

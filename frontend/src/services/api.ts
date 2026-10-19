@@ -107,3 +107,78 @@ export async function logoutApi() {
     useAuthStore.getState().logout();
   }
 }
+
+// ── Transit Network Endpoints ─────────────────────────────────────
+import type {
+  TransitSearchResponse,
+  RoutePathResponse,
+  StopArrivalsResponse,
+  TransitStop,
+} from "../types/transit";
+
+export async function searchTransitApi(query: string): Promise<TransitSearchResponse> {
+  const res = await api.get<TransitSearchResponse>("/transit/routes/search/", {
+    params: { q: query },
+  });
+  return res.data;
+}
+
+export async function fetchRoutePathApi(routeId: string): Promise<RoutePathResponse> {
+  const res = await api.get<RoutePathResponse>(`/transit/routes/${routeId}/path/`);
+  return res.data;
+}
+
+export async function fetchNearbyStopsApi(
+  lat: number,
+  lng: number,
+  radiusM: number = 1500
+): Promise<{ stops: TransitStop[]; user_lat: number; user_lng: number }> {
+  const res = await api.get<{ stops: TransitStop[]; user_lat: number; user_lng: number }>(
+    "/transit/stops/nearby/",
+    { params: { lat, lng, radius_m: radiusM } }
+  );
+  return res.data;
+}
+
+export async function fetchStopArrivalsApi(stopId: string): Promise<StopArrivalsResponse> {
+  const res = await api.get<StopArrivalsResponse>(`/transit/stops/${stopId}/arrivals/`);
+  return res.data;
+}
+
+import type { JourneyPlanResponse } from "../types/transit";
+
+export async function planJourneyApi(
+  originId: string,
+  destinationId: string
+): Promise<JourneyPlanResponse> {
+  const res = await api.get<JourneyPlanResponse>("/transit/stops/plan-journey/", {
+    params: { origin_id: originId, destination_id: destinationId },
+  });
+  return res.data;
+}
+
+export async function fetchFavoritesApi(): Promise<{ favorite_routes: string[] }> {
+  const res = await api.get<{ favorite_routes: string[] }>("/accounts/favorites/toggle/");
+  return res.data;
+}
+
+export async function dispatchIncidentApi(
+  incidentId: string,
+  busId?: string
+): Promise<{ message: string; incident: unknown; dispatched_bus: string | null }> {
+  const res = await api.post<{
+    message: string;
+    incident: unknown;
+    dispatched_bus: string | null;
+  }>(`/intelligence/incidents/${incidentId}/dispatch/`, { bus_id: busId });
+  return res.data;
+}
+
+export async function fetchRouteHistoryApi(routeId?: string, days: number = 7) {
+  const res = await api.get("/analytics/metrics/route-history/", {
+    params: { route_id: routeId, days },
+  });
+  return res.data;
+}
+
+

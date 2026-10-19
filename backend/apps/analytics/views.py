@@ -46,3 +46,32 @@ class AnalyticsViewSet(viewsets.ReadOnlyModelViewSet):
                 "active_incidents": active_incidents,
             }
         )
+
+    @action(detail=False, methods=["get"], url_path="route-history")
+    def route_history(self, request):
+        """Returns 7-day or 30-day historical performance for a given route."""
+        route_id = request.query_params.get("route_id")
+        days = int(request.query_params.get("days", 7))
+        
+        qs = RoutePerformanceDaily.objects.all()
+        if route_id:
+            qs = qs.filter(route_id=route_id)
+        
+        # If no records exist yet, auto-run aggregation for today
+        if qs.count() == 0:
+            from .tasks import aggregate_daily_route_performance
+            aggregate_daily_route_performance()
+            qs = RoutePerformanceDaily.objects.all()
+            if route_id:
+                qs = qs.filter(route_id=route_id)
+
+        history = qs.order_by("-date")[:days]
+        return Response(RoutePerformanceDailySerializer(history, many=True).data)
+
+    @action(detail=False, methods=["post"], url_path="aggregate-now")
+    def trigger_aggregation(self, request):
+        """Manually trigger daily analytics rollup."""
+        from .tasks import aggregate_daily_route_performance
+        msg = aggregate_daily_route_performance()
+        return Response({"status": "ok", "result": msg})
+

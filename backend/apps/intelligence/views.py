@@ -24,6 +24,58 @@ class IncidentViewSet(viewsets.ModelViewSet):
         incident.save()
         return Response(self.get_serializer(incident).data)
 
+    @action(detail=True, methods=["post"])
+    def dispatch(self, request, pk=None):
+        incident = self.get_object()
+        bus_id = request.data.get("bus_id")
+        
+        bus = None
+        if bus_id:
+            try:
+                bus = Bus.objects.get(id=bus_id)
+            except Bus.DoesNotExist:
+                pass
+        if not bus and incident.recommended_bus:
+            bus = incident.recommended_bus
+
+        if bus:
+            incident.recommended_bus = bus
+            if incident.route:
+                bus.current_route = incident.route
+                bus.save(update_fields=["current_route"])
+
+        incident.status = "dispatched"
+        incident.save()
+
+        # Try broadcasting WebSocket update to fleet_updates group
+        try:
+            from channels.layers import get_channel_layer
+            from asgiref.sync import async_to_sync
+
+            channel_layer = get_channel_layer()
+            if channel_layer:
+                async_to_sync(channel_layer.group_send)(
+                    "fleet_updates",
+                    {
+                        "type": "operator.dispatch",
+                        "data": {
+                            "incident_id": str(incident.id),
+                            "bus_id": bus.id if bus else None,
+                            "route_id": incident.route_id,
+                            "status": "dispatched",
+                            "message": f"Bus {bus.id if bus else 'Unknown'} dispatched for {incident.title}",
+                        },
+                    },
+                )
+        except Exception:
+            pass
+
+        return Response({
+            "message": f"Intervention dispatched successfully: Bus {bus.id if bus else 'N/A'} assigned to route {incident.route_id or 'incident'}",
+            "incident": self.get_serializer(incident).data,
+            "dispatched_bus": bus.id if bus else None,
+        })
+
     @action(detail=False, methods=["post"])
     def optimize_divert(self, request):
         lat = request.data.get("lat")

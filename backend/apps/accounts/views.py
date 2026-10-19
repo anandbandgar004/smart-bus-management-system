@@ -66,6 +66,11 @@ class UserMeView(APIView):
 class ToggleFavoriteRouteView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    def get(self, request):
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        favs = list(profile.favorite_routes or [])
+        return Response({"favorite_routes": favs})
+
     def post(self, request):
         route_id = str(request.data.get("route_id", "")).strip()
         if not route_id:

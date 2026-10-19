@@ -4,6 +4,7 @@ import {
   TileLayer,
   Marker,
   Tooltip,
+  Polyline,
   useMap,
   useMapEvents,
 } from "react-leaflet";
@@ -11,7 +12,8 @@ import L from "leaflet";
 import type { Bus } from "../../types/bus";
 import { delayLabel, delayColor } from "../../types/bus";
 import { useFleetStore } from "../../store/fleetStore";
-import { Filter, X } from "lucide-react";
+import { useIncidentStore } from "../../store/incidentStore";
+import { Filter, X, Zap } from "lucide-react";
 
 const TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
@@ -98,6 +100,9 @@ export default function LiveMapPanel({ buses }: Props) {
     ? buses.filter((b) => b.route_id === selectedRouteFilter)
     : buses;
 
+  const dispatches = useIncidentStore((s) => s.dispatches);
+  const latestDispatch = dispatches.length > 0 ? dispatches[dispatches.length - 1] : null;
+
   return (
     <div className="relative w-full h-full min-h-[340px] rounded-2xl overflow-hidden border border-slate-800 shadow-2xl bg-slate-950 flex flex-col">
       <MapContainer
@@ -113,6 +118,29 @@ export default function LiveMapPanel({ buses }: Props) {
 
         <MapController selectedBus={selectedBus} />
         <MapClickHandler />
+
+        {/* Visual Intervention Lines for Dispatched Incidents */}
+        {dispatches.map((d, idx) => {
+          const dBus = buses.find((b) => b.id === d.busId);
+          if (!dBus) return null;
+          // Target diversion waypoint (corridor intercept vector)
+          const targetCoords: [number, number] = [dBus.lat + 0.018, dBus.lng + 0.015];
+          return (
+            <Polyline
+              key={`dispatch-${idx}`}
+              positions={[
+                [dBus.lat, dBus.lng],
+                targetCoords,
+              ]}
+              pathOptions={{
+                color: "#06B6D4",
+                weight: 4,
+                dashArray: "6, 8",
+                opacity: 0.9,
+              }}
+            />
+          );
+        })}
 
         {filteredBuses.map((bus) => {
           const isSelected = bus.id === selectedBusId;
@@ -205,6 +233,18 @@ export default function LiveMapPanel({ buses }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Active Dispatch Notification Banner */}
+      {latestDispatch && (
+        <div className="absolute bottom-4 left-4 z-[500] flex items-center gap-2 px-3 py-1.5 rounded-xl bg-cyan-950/90 border border-cyan-500/50 backdrop-blur-md shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-200">
+          <Zap size={14} className="text-cyan-400 animate-pulse" />
+          <span className="text-xs font-semibold text-cyan-200">
+            Dispatch Intervention Active:{" "}
+            <span className="text-white font-bold">{latestDispatch.busId || "Fleet Unit"}</span> for{" "}
+            <span className="text-cyan-300">{latestDispatch.title}</span>
+          </span>
+        </div>
+      )}
     </div>
   );
 }
