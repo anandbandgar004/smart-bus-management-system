@@ -28,6 +28,9 @@ RUN DJANGO_SETTINGS_MODULE=core.settings.production \
     DB_HOST=localhost \
     python manage.py collectstatic --noinput 2>/dev/null || true
 
+# Prepare executable entrypoint script (normalize line endings for Linux)
+RUN sed -i 's/\r$//' /app/entrypoint.sh && chmod +x /app/entrypoint.sh
+
 EXPOSE 8000
 
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "core.asgi:application"]
+CMD ["/app/entrypoint.sh"]

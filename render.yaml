@@ -26,5 +26,11 @@ services:
         value: "200"
       - key: OPERATOR_SECRET_KEY
         generateValue: true
+      - key: DJANGO_SUPERUSER_USERNAME
+        value: admin
+      - key: DJANGO_SUPERUSER_PASSWORD
+        generateValue: true
+      - key: DJANGO_SUPERUSER_EMAIL
+        value: admin@example.com
       - key: SECURE_SSL_REDIRECT
         value: "False"  # Render handles SSL termination at proxy level
