@@ -181,4 +181,11 @@ export async function fetchRouteHistoryApi(routeId?: string, days: number = 7) {
   return res.data;
 }
 
+import type { Bus } from "../types/bus";
+
+export async function fetchActiveBusesApi(): Promise<Bus[]> {
+  const res = await api.get<Bus[]>("/fleet/buses/active/");
+  return res.data;
+}
+
 

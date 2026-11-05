@@ -20,12 +20,11 @@ if database_url:
     if "neon.tech" in database_url:
         DATABASES["default"]["OPTIONS"] = {"sslmode": "require"}
 
-# ── Redis / Channels (parse REDIS_URL from Upstash / Render) ─────────
-redis_url = config("REDIS_URL", default="redis://localhost:6379/0")
-CELERY_BROKER_URL = redis_url  # noqa: F405
+# ── Redis / Channels (parse REDIS_URL from Upstash / Render / Railway) ──
+redis_url = config("REDIS_URL", default="").strip()
+CELERY_BROKER_URL = redis_url if redis_url else "redis://localhost:6379/0"  # noqa: F405
 
-# Upstash Redis uses TLS on port 6379 — channels-redis needs special config
-if "upstash.io" in redis_url:
+if redis_url and not redis_url.startswith("redis://localhost"):
     CHANNEL_LAYERS = {  # noqa: F405
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -37,14 +36,22 @@ if "upstash.io" in redis_url:
 else:
     redis_host = config("REDIS_HOST", default="localhost")
     redis_port = config("REDIS_PORT", default=6379, cast=int)
-    CHANNEL_LAYERS = {  # noqa: F405
-        "default": {
-            "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {
-                "hosts": [(redis_host, redis_port)],
-            },
+    if redis_host != "localhost":
+        CHANNEL_LAYERS = {  # noqa: F405
+            "default": {
+                "BACKEND": "channels_redis.core.RedisChannelLayer",
+                "CONFIG": {
+                    "hosts": [(redis_host, redis_port)],
+                },
+            }
         }
-    }
+    else:
+        # In-memory channel layer fallback for single-instance free tiers
+        CHANNEL_LAYERS = {  # noqa: F405
+            "default": {
+                "BACKEND": "channels.layers.InMemoryChannelLayer",
+            }
+        }
 
 # ── Security Hardening ────────────────────────────────────────────────
 SECURE_SSL_REDIRECT = config("SECURE_SSL_REDIRECT", default=True, cast=bool)

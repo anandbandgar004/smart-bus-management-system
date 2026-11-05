@@ -33,6 +33,19 @@ else:
     print('==> DJANGO_SUPERUSER_PASSWORD not set. Skipping automatic superuser creation.')
 " || true
 
+echo "==> [4/4] Fetching initial GTFS fleet snapshot..."
+python -c "
+import os, django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', os.environ.get('DJANGO_SETTINGS_MODULE', 'core.settings.production'))
+django.setup()
+from apps.fleet.services.gtfs_ingestion import fetch_and_process_bus_data
+try:
+    res = fetch_and_process_bus_data()
+    print(f'==> Ingested {len(res.get(\"buses\", []))} live buses into PostGIS.')
+except Exception as e:
+    print(f'==> Warning: Initial GTFS ingest failed ({e}), simulator fallback will be used.')
+" || true
+
 echo "==> Starting Daphne ASGI server..."
 exec daphne -b 0.0.0.0 -p 8000 core.asgi:application
 

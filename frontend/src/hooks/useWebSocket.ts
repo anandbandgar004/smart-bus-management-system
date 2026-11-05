@@ -3,8 +3,33 @@ import { useFleetStore } from "../store/fleetStore";
 import { useIncidentStore } from "../store/incidentStore";
 import type { Bus } from "../types/bus";
 
-const WS_URL =
-  import.meta.env.VITE_WS_URL || "ws://localhost:8000/ws/fleet/";
+function getWebSocketUrl(): string {
+  if (import.meta.env.VITE_WS_URL) {
+    return import.meta.env.VITE_WS_URL;
+  }
+
+  const apiBase = import.meta.env.VITE_API_BASE;
+  if (apiBase) {
+    try {
+      const url = new URL(apiBase);
+      const wsProtocol = url.protocol === "https:" ? "wss:" : "ws:";
+      return `${wsProtocol}//${url.host}/ws/fleet/`;
+    } catch {
+      // fallback
+    }
+  }
+
+  if (typeof window !== "undefined" && window.location) {
+    const isHttps = window.location.protocol === "https:";
+    if (isHttps) {
+      return "wss://busai-backend.onrender.com/ws/fleet/";
+    }
+  }
+
+  return "ws://localhost:8000/ws/fleet/";
+}
+
+const WS_URL = getWebSocketUrl();
 const RECONNECT_DELAY = 3000;
 
 export function useWebSocket() {

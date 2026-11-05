@@ -12,15 +12,27 @@ class FleetConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_initial_fleet(self):
         from apps.fleet.models import Bus
-        qs = (
+        qs = list(
             Bus.objects.filter(status="active", last_location__isnull=False)
             .select_related("current_route")
             .order_by("-last_telemetry_at")[:200]
         )
+        if not qs:
+            try:
+                from apps.fleet.services.gtfs_ingestion import fetch_and_process_bus_data
+                fetch_and_process_bus_data()
+                qs = list(
+                    Bus.objects.filter(status="active", last_location__isnull=False)
+                    .select_related("current_route")
+                    .order_by("-last_telemetry_at")[:200]
+                )
+            except Exception as e:
+                logger.warning("Auto-fetch initial GTFS fleet on WS connect failed: %s", e)
+
         return [
             {
                 "id": b.id,
-                "route_id": b.current_route_id,
+                "route_id": b.current_route_id or "DTC",
                 "lat": b.last_location.y,
                 "lng": b.last_location.x,
                 "speed_kmh": float(b.last_speed_kmh),

@@ -25,14 +25,15 @@ import {
 import TransitSearchBar from "./TransitSearchBar";
 import StopDetailsDrawer from "./StopDetailsDrawer";
 import { JourneyPlannerDrawer } from "./JourneyPlannerDrawer";
-import { fetchRoutePathApi } from "../../services/api";
+import { fetchRoutePathApi, fetchActiveBusesApi } from "../../services/api";
 import type { RoutePathResponse, TransitStop } from "../../types/transit";
 
 const TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
-function colorFromId(id: string): string {
+function colorFromId(id?: string | null): string {
+  if (!id) return "#3B82F6";
   let h = 0;
-  for (const c of id) h = (h * 31 + c.charCodeAt(0)) % 360;
+  for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) % 360;
   return `hsl(${h},75%,60%)`;
 }
 
@@ -81,6 +82,19 @@ export default function CommuterDashboard() {
     null
   );
   const [isJourneyPlannerOpen, setIsJourneyPlannerOpen] = useState(false);
+
+  // Initial REST fetch fallback in case WebSocket takes time or is connecting
+  useEffect(() => {
+    fetchActiveBusesApi()
+      .then((data) => {
+        if (data && data.length > 0) {
+          useFleetStore.getState().setFleet(data);
+        }
+      })
+      .catch((err) => {
+        console.debug("Initial active buses fetch:", err);
+      });
+  }, []);
 
   // Load Route details when activeRouteId changes
   useEffect(() => {

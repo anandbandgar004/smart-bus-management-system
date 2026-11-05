@@ -23,6 +23,13 @@ class BusViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def active(self, request):
-        active_buses = self.get_queryset().filter(status="active")
+        active_buses = self.get_queryset().filter(status="active", last_location__isnull=False)
+        if not active_buses.exists():
+            from apps.fleet.services.gtfs_ingestion import fetch_and_process_bus_data
+            try:
+                fetch_and_process_bus_data()
+                active_buses = self.get_queryset().filter(status="active", last_location__isnull=False)
+            except Exception:
+                pass
         serializer = self.get_serializer(active_buses, many=True)
         return Response(serializer.data)

@@ -17,9 +17,10 @@ import { Filter, X, Zap } from "lucide-react";
 
 const TILE_URL = "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png";
 
-function colorFromId(id: string): string {
+function colorFromId(id?: string | null): string {
+  if (!id) return "#3B82F6";
   let h = 0;
-  for (const c of id) h = (h * 31 + c.charCodeAt(0)) % 360;
+  for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) % 360;
   return `hsl(${h}, 75%, 55%)`;
 }
 

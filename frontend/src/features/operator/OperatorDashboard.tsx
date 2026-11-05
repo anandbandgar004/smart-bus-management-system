@@ -6,6 +6,7 @@ import LiveMapPanel from "./LiveMapPanel";
 import DelayBarChart from "./DelayBarChart";
 import AlertsDrawer from "./AlertsDrawer";
 import { Link } from "react-router-dom";
+import { fetchActiveBusesApi } from "../../services/api";
 import {
   Bus,
   Users,
@@ -88,6 +89,19 @@ function StatCard({
 
 export default function OperatorDashboard() {
   useWebSocket();
+
+  useEffect(() => {
+    fetchActiveBusesApi()
+      .then((data) => {
+        if (data && data.length > 0) {
+          useFleetStore.getState().setFleet(data);
+        }
+      })
+      .catch((err) => {
+        console.debug("Initial active buses fetch:", err);
+      });
+  }, []);
+
   const busMap = useFleetStore((s) => s.buses);
   const buses = useMemo(() => Object.values(busMap), [busMap]);
   const unreadCount = useIncidentStore((s) => s.unreadCount);

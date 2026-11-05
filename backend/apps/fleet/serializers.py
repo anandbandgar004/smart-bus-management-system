@@ -6,8 +6,11 @@ class BusSerializer(serializers.ModelSerializer):
     lat = serializers.SerializerMethodField()
     lng = serializers.SerializerMethodField()
     route_id = serializers.CharField(
-        source="current_route.id", read_only=True, default=None
+        source="current_route.id", read_only=True, default="DTC"
     )
+    speed_kmh = serializers.FloatField(source="last_speed_kmh", read_only=True)
+    delay_min = serializers.IntegerField(source="last_delay_min", read_only=True)
+    timestamp = serializers.DateTimeField(source="last_telemetry_at", read_only=True)
 
     class Meta:
         model = Bus
@@ -16,10 +19,13 @@ class BusSerializer(serializers.ModelSerializer):
             "route_id",
             "current_trip_id",
             "status",
+            "speed_kmh",
+            "delay_min",
             "last_speed_kmh",
             "last_delay_min",
             "lat",
             "lng",
+            "timestamp",
             "last_telemetry_at",
             "updated_at",
         ]
